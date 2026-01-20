@@ -11,6 +11,8 @@ interface BugherdWebhooksResponse {
   webhooks: BugherdWebhook[];
 }
 
+const WEBHOOK_EVENTS = ["task_create", "task_update"];
+
 async function main(): Promise<void> {
   const apiKey = process.env.BUGHERD_API_KEY;
   const workerUrl = process.env.WORKER_URL;
@@ -46,43 +48,46 @@ async function main(): Promise<void> {
 
   const existingWebhooks = (await listResponse.json()) as BugherdWebhooksResponse;
 
-  const existingWebhook = existingWebhooks.webhooks.find(
-    (webhook) => webhook.target_url === targetUrl && webhook.event === "task_create"
-  );
+  for (const event of WEBHOOK_EVENTS) {
+    const existingWebhook = existingWebhooks.webhooks.find(
+      (webhook) => webhook.target_url === targetUrl && webhook.event === event
+    );
 
-  if (existingWebhook) {
-    console.log(`Webhook already exists with ID: ${existingWebhook.id}`);
-    console.log(`Target URL: ${existingWebhook.target_url}`);
-    console.log(`Event: ${existingWebhook.event}`);
-    return;
+    if (existingWebhook) {
+      console.log(`\n[${event}] Webhook already exists`);
+      console.log(`  ID: ${existingWebhook.id}`);
+      console.log(`  Target URL: ${existingWebhook.target_url}`);
+      continue;
+    }
+
+    console.log(`\n[${event}] Creating webhook...`);
+
+    const createResponse = await fetch(`${BUGHERD_API_BASE}/webhooks.json`, {
+      method: "POST",
+      headers: {
+        Authorization: authHeader,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        target_url: targetUrl,
+        event: event,
+      }),
+    });
+
+    if (!createResponse.ok) {
+      const errorText = await createResponse.text();
+      console.error(`Error creating webhook: ${createResponse.status} - ${errorText}`);
+      continue;
+    }
+
+    const createdWebhook = (await createResponse.json()) as { webhook: BugherdWebhook };
+
+    console.log(`  Webhook created successfully!`);
+    console.log(`  ID: ${createdWebhook.webhook.id}`);
+    console.log(`  Target URL: ${createdWebhook.webhook.target_url}`);
   }
 
-  console.log("Creating new webhook...");
-
-  const createResponse = await fetch(`${BUGHERD_API_BASE}/webhooks.json`, {
-    method: "POST",
-    headers: {
-      Authorization: authHeader,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      target_url: targetUrl,
-      event: "task_create",
-    }),
-  });
-
-  if (!createResponse.ok) {
-    const errorText = await createResponse.text();
-    console.error(`Error creating webhook: ${createResponse.status} - ${errorText}`);
-    process.exit(1);
-  }
-
-  const createdWebhook = (await createResponse.json()) as { webhook: BugherdWebhook };
-
-  console.log("Webhook created successfully!");
-  console.log(`ID: ${createdWebhook.webhook.id}`);
-  console.log(`Target URL: ${createdWebhook.webhook.target_url}`);
-  console.log(`Event: ${createdWebhook.webhook.event}`);
+  console.log("\nDone!");
 }
 
 main().catch((error) => {
