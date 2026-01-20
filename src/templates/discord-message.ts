@@ -8,15 +8,21 @@ import { BUGHERD_PRIORITY_MAP, DISCORD_COLORS } from "../types";
 export function buildDiscordNotification(
   task: BugherdTask,
   githubIssue: GithubIssueResponse,
-  assignedDeveloper: string | null
+  assignedDeveloper: string | null,
+  discordId: string | null
 ): DiscordWebhookPayload {
   const priorityLabel = task.priority_id
     ? BUGHERD_PRIORITY_MAP[task.priority_id] || "not set"
     : "not set";
 
-  const assigneeText = assignedDeveloper
-    ? `@${assignedDeveloper}`
-    : "Sin asignar";
+  let assigneeText: string;
+  if (discordId) {
+    assigneeText = `<@${discordId}>`;
+  } else if (assignedDeveloper) {
+    assigneeText = `@${assignedDeveloper}`;
+  } else {
+    assigneeText = "Sin asignar";
+  }
 
   const descriptionPreview = task.description
     ? task.description.substring(0, 200) +

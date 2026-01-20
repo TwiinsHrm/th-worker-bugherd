@@ -1,6 +1,6 @@
 import type { Env, BugherdWebhookPayload, GithubIssuePayload } from "../types";
 import { GITHUB_PRIORITY_LABELS } from "../types";
-import { findProjectByBugherdId, findGithubUsername } from "../config";
+import { findProjectByBugherdId, findGithubUsername, getDiscordIdByGithub } from "../config";
 import {
   createGithubIssue,
   updateGithubIssue,
@@ -116,10 +116,12 @@ async function handleTaskCreate(
     const discordWebhookUrl = getDiscordWebhookUrl(env, project.discordWebhookEnvKey);
 
     if (discordWebhookUrl) {
+      const discordId = githubUsername ? getDiscordIdByGithub(githubUsername) : null;
       const discordPayload = buildDiscordNotification(
         task,
         githubIssue,
-        githubUsername
+        githubUsername,
+        discordId
       );
       await sendDiscordNotification(discordWebhookUrl, discordPayload);
       console.log(`Sent Discord notification`);
