@@ -4,7 +4,15 @@ import type {
   GithubIssueResponse,
   GithubWebhookPayload,
 } from "../types";
+import type { LinkedPullRequest } from "../services/github";
 import { BUGHERD_PRIORITY_MAP, DISCORD_COLORS } from "../types";
+
+export interface IssueClosedContext {
+  issue: GithubWebhookPayload["issue"];
+  closedByDiscordId: string | null;
+  pullRequest: LinkedPullRequest | null;
+  bugherdAdminLink: string;
+}
 
 export function buildDiscordNotification(
   task: BugherdTask,
@@ -99,9 +107,10 @@ export function buildDiscordNotification(
 }
 
 export function buildIssueClosedNotification(
-  issue: GithubWebhookPayload["issue"],
-  closedByDiscordId: string | null
+  context: IssueClosedContext
 ): DiscordWebhookPayload {
+  const { issue, closedByDiscordId, pullRequest, bugherdAdminLink } = context;
+
   const congratsMessages = [
     "🎉 ¡Bug aplastado!",
     "🏆 ¡Victoria contra los bugs!",
@@ -120,28 +129,62 @@ export function buildIssueClosedNotification(
     closedByText = "Un desarrollador";
   }
 
+  const fields = [
+    {
+      name: "📋 Título",
+      value: issue.title,
+      inline: false,
+    },
+    {
+      name: "🦸 Cerrado por",
+      value: closedByText,
+      inline: true,
+    },
+    {
+      name: "🔢 Issue",
+      value: `[#${issue.number}](${issue.html_url})`,
+      inline: true,
+    },
+  ];
+
+  if (pullRequest) {
+    fields.push({
+      name: "🔀 Pull Request",
+      value: `[#${pullRequest.number} - ${pullRequest.title}](${pullRequest.html_url})`,
+      inline: false,
+    });
+  }
+
+  const buttons = [
+    {
+      type: 2 as const,
+      style: 5 as const,
+      label: "Ver Issue",
+      url: issue.html_url,
+    },
+    {
+      type: 2 as const,
+      style: 5 as const,
+      label: "Ver en BugHerd",
+      url: bugherdAdminLink,
+    },
+  ];
+
+  if (pullRequest) {
+    buttons.splice(1, 0, {
+      type: 2 as const,
+      style: 5 as const,
+      label: "Ver PR",
+      url: pullRequest.html_url,
+    });
+  }
+
   const payload: DiscordWebhookPayload = {
     embeds: [
       {
         title: `✅ Issue Cerrado - ${congratsMessage}`,
         color: DISCORD_COLORS.GREEN,
-        fields: [
-          {
-            name: "📋 Título",
-            value: issue.title,
-            inline: false,
-          },
-          {
-            name: "🦸 Cerrado por",
-            value: closedByText,
-            inline: true,
-          },
-          {
-            name: "🔢 Issue",
-            value: `#${issue.number}`,
-            inline: true,
-          },
-        ],
+        fields,
         footer: {
           text: "GitHub → BugHerd",
         },
@@ -151,14 +194,7 @@ export function buildIssueClosedNotification(
     components: [
       {
         type: 1,
-        components: [
-          {
-            type: 2,
-            style: 5,
-            label: "Ver en GitHub",
-            url: issue.html_url,
-          },
-        ],
+        components: buttons,
       },
     ],
   };

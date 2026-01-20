@@ -130,3 +130,63 @@ export async function verifyWebhookSignature(
 
   return signature === expectedSignature;
 }
+
+export interface LinkedPullRequest {
+  number: number;
+  html_url: string;
+  title: string;
+  merged: boolean;
+}
+
+export async function getLinkedPullRequest(
+  token: string,
+  owner: string,
+  repo: string,
+  issueNumber: number
+): Promise<LinkedPullRequest | null> {
+  const url = `${GITHUB_API_BASE}/repos/${owner}/${repo}/issues/${issueNumber}/timeline`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      ...getGithubHeaders(token),
+      Accept: "application/vnd.github.mockingbird-preview+json",
+    },
+  });
+
+  if (!response.ok) {
+    console.log(`Failed to get timeline for issue #${issueNumber}`);
+    return null;
+  }
+
+  const timeline = (await response.json()) as Array<{
+    event: string;
+    source?: {
+      type: string;
+      issue?: {
+        number: number;
+        html_url: string;
+        title: string;
+        pull_request?: {
+          merged_at: string | null;
+        };
+      };
+    };
+  }>;
+
+  for (const event of timeline.reverse()) {
+    if (event.event === "cross-referenced" && event.source?.type === "issue") {
+      const linkedIssue = event.source.issue;
+      if (linkedIssue?.pull_request) {
+        return {
+          number: linkedIssue.number,
+          html_url: linkedIssue.html_url,
+          title: linkedIssue.title,
+          merged: linkedIssue.pull_request.merged_at !== null,
+        };
+      }
+    }
+  }
+
+  return null;
+}

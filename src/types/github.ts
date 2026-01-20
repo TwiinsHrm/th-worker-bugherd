@@ -10,6 +10,12 @@ export interface GithubUser {
   id: number;
 }
 
+export interface GithubPullRequest {
+  url: string;
+  html_url: string;
+  number: number;
+}
+
 export interface GithubIssueResponse {
   id: number;
   number: number;
@@ -17,6 +23,7 @@ export interface GithubIssueResponse {
   state: string;
   title: string;
   assignees?: GithubUser[];
+  pull_request?: GithubPullRequest;
 }
 
 export interface GithubWebhookPayload {

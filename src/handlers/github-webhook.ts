@@ -5,6 +5,7 @@ import {
   findTaskByExternalId,
   moveTaskToColumn,
   sendDiscordNotification,
+  getLinkedPullRequest,
 } from "../services";
 import { buildIssueClosedNotification } from "../templates";
 
@@ -101,10 +102,21 @@ export async function handleGithubWebhook(
           ? getDiscordIdByGithub(closedByUsername)
           : null;
 
-        const discordPayload = buildIssueClosedNotification(
-          payload.issue,
-          closedByDiscordId
+        const pullRequest = await getLinkedPullRequest(
+          env.GITHUB_TOKEN,
+          owner,
+          repo,
+          issueNumber
         );
+
+        console.log(`Found linked PR: ${pullRequest ? `#${pullRequest.number}` : "none"}`);
+
+        const discordPayload = buildIssueClosedNotification({
+          issue: payload.issue,
+          closedByDiscordId,
+          pullRequest,
+          bugherdAdminLink: task.admin_link,
+        });
 
         await sendDiscordNotification(discordWebhookUrl, discordPayload);
         console.log(`Sent Discord notification for closed issue`);
