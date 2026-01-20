@@ -5,6 +5,17 @@ import type {
 } from "../types";
 
 const GITHUB_API_BASE = "https://api.github.com";
+const USER_AGENT = "th-worker-bugherd/1.0";
+
+function getGithubHeaders(token: string): Record<string, string> {
+  return {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/vnd.github+json",
+    "Content-Type": "application/json",
+    "User-Agent": USER_AGENT,
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
+}
 
 export async function createGithubIssue(
   token: string,
@@ -16,12 +27,7 @@ export async function createGithubIssue(
 
   const response = await fetch(url, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github+json",
-      "Content-Type": "application/json",
-      "X-GitHub-Api-Version": "2022-11-28",
-    },
+    headers: getGithubHeaders(token),
     body: JSON.stringify(payload),
   });
 
@@ -46,12 +52,7 @@ export async function assignIssue(
 
   const response = await fetch(url, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github+json",
-      "Content-Type": "application/json",
-      "X-GitHub-Api-Version": "2022-11-28",
-    },
+    headers: getGithubHeaders(token),
     body: JSON.stringify({ assignees }),
   });
 
@@ -74,12 +75,7 @@ export async function updateGithubIssue(
 
   const response = await fetch(url, {
     method: "PATCH",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: "application/vnd.github+json",
-      "Content-Type": "application/json",
-      "X-GitHub-Api-Version": "2022-11-28",
-    },
+    headers: getGithubHeaders(token),
     body: JSON.stringify(payload),
   });
 
