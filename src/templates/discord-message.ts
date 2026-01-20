@@ -155,27 +155,30 @@ export function buildIssueClosedNotification(
     });
   }
 
-  const buttons = [
+  const buttons: Array<{ type: 2; style: 5; label: string; url: string }> = [
     {
       type: 2 as const,
       style: 5 as const,
       label: "Ver Issue",
       url: issue.html_url,
     },
-    {
-      type: 2 as const,
-      style: 5 as const,
-      label: "Ver en BugHerd",
-      url: bugherdAdminLink,
-    },
   ];
 
   if (pullRequest) {
-    buttons.splice(1, 0, {
+    buttons.push({
       type: 2 as const,
       style: 5 as const,
       label: "Ver PR",
       url: pullRequest.html_url,
+    });
+  }
+
+  if (bugherdAdminLink) {
+    buttons.push({
+      type: 2 as const,
+      style: 5 as const,
+      label: "Ver en BugHerd",
+      url: bugherdAdminLink,
     });
   }
 

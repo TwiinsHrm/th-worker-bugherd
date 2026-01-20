@@ -144,49 +144,54 @@ export async function getLinkedPullRequest(
   repo: string,
   issueNumber: number
 ): Promise<LinkedPullRequest | null> {
-  const url = `${GITHUB_API_BASE}/repos/${owner}/${repo}/issues/${issueNumber}/timeline`;
+  try {
+    const url = `${GITHUB_API_BASE}/repos/${owner}/${repo}/issues/${issueNumber}/timeline`;
 
-  const response = await fetch(url, {
-    method: "GET",
-    headers: {
-      ...getGithubHeaders(token),
-      Accept: "application/vnd.github.mockingbird-preview+json",
-    },
-  });
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        ...getGithubHeaders(token),
+        Accept: "application/vnd.github.mockingbird-preview+json",
+      },
+    });
 
-  if (!response.ok) {
-    console.log(`Failed to get timeline for issue #${issueNumber}`);
-    return null;
-  }
+    if (!response.ok) {
+      console.log(`Failed to get timeline for issue #${issueNumber}: ${response.status}`);
+      return null;
+    }
 
-  const timeline = (await response.json()) as Array<{
-    event: string;
-    source?: {
-      type: string;
-      issue?: {
-        number: number;
-        html_url: string;
-        title: string;
-        pull_request?: {
-          merged_at: string | null;
+    const timeline = (await response.json()) as Array<{
+      event: string;
+      source?: {
+        type: string;
+        issue?: {
+          number: number;
+          html_url: string;
+          title: string;
+          pull_request?: {
+            merged_at: string | null;
+          };
         };
       };
-    };
-  }>;
+    }>;
 
-  for (const event of timeline.reverse()) {
-    if (event.event === "cross-referenced" && event.source?.type === "issue") {
-      const linkedIssue = event.source.issue;
-      if (linkedIssue?.pull_request) {
-        return {
-          number: linkedIssue.number,
-          html_url: linkedIssue.html_url,
-          title: linkedIssue.title,
-          merged: linkedIssue.pull_request.merged_at !== null,
-        };
+    for (const event of timeline.reverse()) {
+      if (event.event === "cross-referenced" && event.source?.type === "issue") {
+        const linkedIssue = event.source.issue;
+        if (linkedIssue?.pull_request) {
+          return {
+            number: linkedIssue.number,
+            html_url: linkedIssue.html_url,
+            title: linkedIssue.title,
+            merged: linkedIssue.pull_request.merged_at !== null,
+          };
+        }
       }
     }
-  }
 
-  return null;
+    return null;
+  } catch (error) {
+    console.log(`Error getting linked PR for issue #${issueNumber}: ${error}`);
+    return null;
+  }
 }
