@@ -11,7 +11,7 @@ export interface IssueClosedContext {
   issue: GithubWebhookPayload["issue"];
   closedByDiscordId: string | null;
   pullRequest: LinkedPullRequest | null;
-  bugherdAdminLink: string;
+  bugherdAdminLink: string | null;
 }
 
 export function buildDiscordNotification(

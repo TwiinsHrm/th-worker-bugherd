@@ -62,6 +62,8 @@ export async function handleGithubWebhook(
     return new Response("Repository not mapped", { status: 200 });
   }
 
+  console.log(`[GitHub Webhook] Processing issue #${issueNumber}, action: ${payload.action}`);
+
   try {
     const task = await findTaskByExternalId(
       env.BUGHERD_API_KEY,
@@ -69,38 +71,38 @@ export async function handleGithubWebhook(
       String(issueNumber)
     );
 
-    if (!task) {
-      console.log(`No BugHerd task found for issue #${issueNumber}`);
-      return new Response("Task not found in BugHerd", { status: 200 });
+    console.log(`[GitHub Webhook] BugHerd task found: ${task ? `#${task.local_task_id}` : "none"}`);
+
+    if (task) {
+      let targetColumn: string;
+
+      if (isClosedAction) {
+        targetColumn = project.closedStatusColumn;
+      } else {
+        targetColumn = "doing";
+      }
+
+      await moveTaskToColumn(
+        env.BUGHERD_API_KEY,
+        project.bugherdProjectId,
+        task.id,
+        targetColumn
+      );
+
+      console.log(`Moved BugHerd task #${task.local_task_id} to "${targetColumn}"`);
     }
-
-    let targetColumn: string;
-
-    if (isClosedAction) {
-      targetColumn = project.closedStatusColumn;
-    } else {
-      targetColumn = "doing";
-    }
-
-    await moveTaskToColumn(
-      env.BUGHERD_API_KEY,
-      project.bugherdProjectId,
-      task.id,
-      targetColumn
-    );
-
-    console.log(
-      `Moved BugHerd task #${task.local_task_id} to "${targetColumn}"`
-    );
 
     if (isClosedAction) {
       const discordWebhookUrl = getDiscordWebhookUrl(env, project.discordWebhookEnvKey);
+      console.log(`[GitHub Webhook] Discord webhook URL found: ${discordWebhookUrl ? "yes" : "no"}`);
 
       if (discordWebhookUrl) {
         const closedByUsername = payload.issue.assignees?.[0]?.login || null;
         const closedByDiscordId = closedByUsername
           ? getDiscordIdByGithub(closedByUsername)
           : null;
+
+        console.log(`[GitHub Webhook] Closed by: ${closedByUsername || "unknown"}, Discord ID: ${closedByDiscordId || "none"}`);
 
         const pullRequest = await getLinkedPullRequest(
           env.GITHUB_TOKEN,
@@ -109,25 +111,27 @@ export async function handleGithubWebhook(
           issueNumber
         );
 
-        console.log(`Found linked PR: ${pullRequest ? `#${pullRequest.number}` : "none"}`);
+        console.log(`[GitHub Webhook] Found linked PR: ${pullRequest ? `#${pullRequest.number}` : "none"}`);
+
+        const bugherdAdminLink = task?.admin_link || null;
 
         const discordPayload = buildIssueClosedNotification({
           issue: payload.issue,
           closedByDiscordId,
           pullRequest,
-          bugherdAdminLink: task.admin_link,
+          bugherdAdminLink,
         });
 
         await sendDiscordNotification(discordWebhookUrl, discordPayload);
-        console.log(`Sent Discord notification for closed issue`);
+        console.log(`[GitHub Webhook] Sent Discord notification for closed issue`);
       }
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        taskId: task.id,
-        newStatus: targetColumn,
+        taskId: task?.id || null,
+        action: payload.action,
       }),
       {
         status: 200,
