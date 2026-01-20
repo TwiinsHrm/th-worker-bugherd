@@ -5,12 +5,18 @@ export interface GithubIssuePayload {
   assignees?: string[];
 }
 
+export interface GithubUser {
+  login: string;
+  id: number;
+}
+
 export interface GithubIssueResponse {
   id: number;
   number: number;
   html_url: string;
   state: string;
   title: string;
+  assignees?: GithubUser[];
 }
 
 export interface GithubWebhookPayload {

@@ -1,10 +1,12 @@
 import type { Env, GithubWebhookPayload } from "../types";
-import { findProjectByGithubRepo } from "../config";
+import { findProjectByGithubRepo, getDiscordIdByGithub } from "../config";
 import {
   verifyWebhookSignature,
   findTaskByExternalId,
   moveTaskToColumn,
+  sendDiscordNotification,
 } from "../services";
+import { buildIssueClosedNotification } from "../templates";
 
 export async function handleGithubWebhook(
   request: Request,
@@ -90,6 +92,25 @@ export async function handleGithubWebhook(
       `Moved BugHerd task #${task.local_task_id} to "${targetColumn}"`
     );
 
+    if (isClosedAction) {
+      const discordWebhookUrl = getDiscordWebhookUrl(env, project.discordWebhookEnvKey);
+
+      if (discordWebhookUrl) {
+        const closedByUsername = payload.issue.assignees?.[0]?.login || null;
+        const closedByDiscordId = closedByUsername
+          ? getDiscordIdByGithub(closedByUsername)
+          : null;
+
+        const discordPayload = buildIssueClosedNotification(
+          payload.issue,
+          closedByDiscordId
+        );
+
+        await sendDiscordNotification(discordWebhookUrl, discordPayload);
+        console.log(`Sent Discord notification for closed issue`);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -106,4 +127,9 @@ export async function handleGithubWebhook(
     console.error(`Error processing GitHub webhook: ${errorMessage}`);
     return new Response(`Error: ${errorMessage}`, { status: 500 });
   }
+}
+
+function getDiscordWebhookUrl(env: Env, envKey: string): string | null {
+  const envRecord = env as unknown as Record<string, string>;
+  return envRecord[envKey] || null;
 }
