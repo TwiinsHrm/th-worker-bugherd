@@ -21,21 +21,29 @@ export async function handleBugherdWebhook(
 ): Promise<Response> {
   let payload: BugherdWebhookPayload;
 
+  const rawBody = await request.text();
+  console.log(`[BugHerd Webhook] Raw payload: ${rawBody.substring(0, 500)}`);
+
   try {
-    payload = await request.json();
+    payload = JSON.parse(rawBody);
   } catch {
+    console.error(`[BugHerd Webhook] Invalid JSON`);
     return new Response("Invalid JSON payload", { status: 400 });
   }
+
+  console.log(`[BugHerd Webhook] Event: ${payload.event}, Project ID: ${payload.task?.project_id}`);
 
   const isTaskCreate = payload.event === "task_create";
   const isTaskUpdate = payload.event === "task_update";
 
   if (!isTaskCreate && !isTaskUpdate) {
+    console.log(`[BugHerd Webhook] Ignoring event: ${payload.event}`);
     return new Response(`Event ${payload.event} ignored`, { status: 200 });
   }
 
   const task = payload.task;
   const project = findProjectByBugherdId(task.project_id);
+  console.log(`[BugHerd Webhook] Project mapping found: ${project !== null}`);
 
   if (!project) {
     console.log(`Project ${task.project_id} not mapped, ignoring`);
