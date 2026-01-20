@@ -45,8 +45,8 @@ export function buildDiscordNotification(
             inline: true,
           },
           {
-            name: "🔗 URL",
-            value: task.url || "N/A",
+            name: "🔗 Issue",
+            value: githubIssue.html_url,
             inline: false,
           },
           {
