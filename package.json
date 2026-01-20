@@ -1,0 +1,23 @@
+{
+  "name": "th-worker-bugherd",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker: BugHerd ↔ GitHub bidirectional sync with Discord notifications",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "setup:bugherd": "npx tsx scripts/setup-bugherd-webhook.ts",
+    "setup:github": "npx tsx scripts/setup-github-webhook.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241218.0",
+    "@types/node": "^25.0.9",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "wrangler": "^3.99.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
