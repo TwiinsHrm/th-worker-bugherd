@@ -19,29 +19,38 @@ export async function handleBugherdWebhook(
   request: Request,
   env: Env
 ): Promise<Response> {
-  let payload: BugherdWebhookPayload;
-
   const rawBody = await request.text();
-  console.log(`[BugHerd Webhook] Raw payload: ${rawBody.substring(0, 500)}`);
+  console.log(`[BugHerd Webhook] Received payload`);
+
+  let rawPayload: { task?: BugherdWebhookPayload["task"]; event?: string };
 
   try {
-    payload = JSON.parse(rawBody);
+    rawPayload = JSON.parse(rawBody);
   } catch {
     console.error(`[BugHerd Webhook] Invalid JSON`);
     return new Response("Invalid JSON payload", { status: 400 });
   }
 
-  console.log(`[BugHerd Webhook] Event: ${payload.event}, Project ID: ${payload.task?.project_id}`);
+  const task = rawPayload.task;
 
-  const isTaskCreate = payload.event === "task_create";
-  const isTaskUpdate = payload.event === "task_update";
-
-  if (!isTaskCreate && !isTaskUpdate) {
-    console.log(`[BugHerd Webhook] Ignoring event: ${payload.event}`);
-    return new Response(`Event ${payload.event} ignored`, { status: 200 });
+  if (!task) {
+    console.error(`[BugHerd Webhook] No task in payload`);
+    return new Response("No task in payload", { status: 400 });
   }
 
-  const task = payload.task;
+  const hasExternalId = task.external_id !== null && task.external_id !== undefined;
+  const eventType = rawPayload.event || (hasExternalId ? "task_update" : "task_create");
+
+  console.log(`[BugHerd Webhook] Task ID: ${task.id}, Event: ${eventType}, Has external_id: ${hasExternalId}`);
+
+  const isTaskCreate = eventType === "task_create";
+  const isTaskUpdate = eventType === "task_update";
+
+  if (!isTaskCreate && !isTaskUpdate) {
+    console.log(`[BugHerd Webhook] Ignoring event: ${eventType}`);
+    return new Response(`Event ${eventType} ignored`, { status: 200 });
+  }
+
   const project = findProjectByBugherdId(task.project_id);
   console.log(`[BugHerd Webhook] Project mapping found: ${project !== null}`);
 
@@ -208,3 +217,5 @@ function getDiscordWebhookUrl(env: Env, envKey: string): string | null {
   const envRecord = env as unknown as Record<string, string>;
   return envRecord[envKey] || null;
 }
+
+
