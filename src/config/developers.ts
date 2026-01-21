@@ -11,6 +11,7 @@ const DEV_MAPPING: Record<string, DeveloperInfo> = {
   "DEV Camilo Escudero": { github: "camiloescudero-ops", discordId: "1424842769607688192" },
   "DEV Isaac Armijos": { github: "supIsaax", discordId: "752559714403090514" },
   "DEV Rory Zambrano": { github: "rorysambrano8000", discordId: "751903164914991206" },
+  "DEV Marco Perez": { github: "marcoperez-twiins", discordId: "1448675240514158632" },
 };
 
 export function findGithubUsername(tagNames: string[]): string | null {
