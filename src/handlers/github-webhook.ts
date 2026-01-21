@@ -6,8 +6,27 @@ import {
   moveTaskToColumn,
   sendDiscordNotification,
   getLinkedPullRequest,
+  addCommentToTask,
 } from "../services";
 import { buildIssueClosedNotification } from "../templates";
+
+interface PullRequestPayload {
+  action: string;
+  number: number;
+  pull_request: {
+    number: number;
+    html_url: string;
+    title: string;
+    body: string | null;
+    user: {
+      login: string;
+    };
+  };
+  repository: {
+    owner: { login: string };
+    name: string;
+  };
+}
 
 export async function handleGithubWebhook(
   request: Request,
@@ -20,10 +39,6 @@ export async function handleGithubWebhook(
     return new Response("Missing signature", { status: 401 });
   }
 
-  if (event !== "issues") {
-    return new Response(`Event ${event} ignored`, { status: 200 });
-  }
-
   const rawBody = await request.text();
 
   const isValidSignature = await verifyWebhookSignature(
@@ -34,6 +49,14 @@ export async function handleGithubWebhook(
 
   if (!isValidSignature) {
     return new Response("Invalid signature", { status: 401 });
+  }
+
+  if (event === "pull_request") {
+    return handlePullRequestEvent(rawBody, env);
+  }
+
+  if (event !== "issues") {
+    return new Response(`Event ${event} ignored`, { status: 200 });
   }
 
   let payload: GithubWebhookPayload;
@@ -148,4 +171,99 @@ export async function handleGithubWebhook(
 function getDiscordWebhookUrl(env: Env, envKey: string): string | null {
   const envRecord = env as unknown as Record<string, string>;
   return envRecord[envKey] || null;
+}
+
+async function handlePullRequestEvent(
+  rawBody: string,
+  env: Env
+): Promise<Response> {
+  let payload: PullRequestPayload;
+
+  try {
+    payload = JSON.parse(rawBody);
+  } catch {
+    return new Response("Invalid JSON payload", { status: 400 });
+  }
+
+  if (payload.action !== "opened") {
+    return new Response(`PR action ${payload.action} ignored`, { status: 200 });
+  }
+
+  const owner = payload.repository.owner.login;
+  const repo = payload.repository.name;
+  const prBody = payload.pull_request.body || "";
+  const prNumber = payload.pull_request.number;
+  const prUrl = payload.pull_request.html_url;
+  const prTitle = payload.pull_request.title;
+
+  const project = findProjectByGithubRepo(owner, repo);
+
+  if (!project) {
+    console.log(`Repository ${owner}/${repo} not mapped, ignoring PR`);
+    return new Response("Repository not mapped", { status: 200 });
+  }
+
+  const issueMatches = prBody.match(/#(\d+)/g) || [];
+  const titleMatches = prTitle.match(/#(\d+)/g) || [];
+  const allMatches = [...new Set([...issueMatches, ...titleMatches])];
+
+  if (allMatches.length === 0) {
+    console.log(`[GitHub Webhook] PR #${prNumber} has no linked issues`);
+    return new Response("No linked issues found", { status: 200 });
+  }
+
+  console.log(`[GitHub Webhook] PR #${prNumber} references issues: ${allMatches.join(", ")}`);
+
+  const results: Array<{ issueNumber: number; success: boolean }> = [];
+
+  for (const match of allMatches) {
+    const issueNumber = parseInt(match.replace("#", ""), 10);
+
+    if (isNaN(issueNumber)) {
+      continue;
+    }
+
+    try {
+      const task = await findTaskByExternalId(
+        env.BUGHERD_API_KEY,
+        project.bugherdProjectId,
+        String(issueNumber)
+      );
+
+      if (task) {
+        const prComment = `🔀 **Pull Request Creado**\n\n` +
+          `Se ha creado el PR #${prNumber} que referencia este bug.\n\n` +
+          `**${prTitle}**\n\n` +
+          `🔗 ${prUrl}`;
+
+        await addCommentToTask(
+          env.BUGHERD_API_KEY,
+          project.bugherdProjectId,
+          task.id,
+          prComment
+        );
+
+        console.log(`[GitHub Webhook] Added PR comment to BugHerd task #${task.local_task_id}`);
+        results.push({ issueNumber, success: true });
+      } else {
+        console.log(`[GitHub Webhook] No BugHerd task found for issue #${issueNumber}`);
+        results.push({ issueNumber, success: false });
+      }
+    } catch (error) {
+      console.error(`[GitHub Webhook] Error adding PR comment for issue #${issueNumber}: ${error}`);
+      results.push({ issueNumber, success: false });
+    }
+  }
+
+  return new Response(
+    JSON.stringify({
+      success: true,
+      prNumber,
+      linkedIssues: results,
+    }),
+    {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    }
+  );
 }

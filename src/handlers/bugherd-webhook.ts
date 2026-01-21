@@ -8,6 +8,7 @@ import {
   buildLabelsFromPriority,
   setTaskExternalId,
   sendDiscordNotification,
+  addCommentToTask,
 } from "../services";
 import {
   buildGithubIssueBody,
@@ -112,6 +113,18 @@ async function handleTaskCreate(
       String(githubIssue.number)
     );
     console.log(`Set external_id on BugHerd task`);
+
+    const issueComment = `🐙 **GitHub Issue Creado**\n\n` +
+      `Se ha creado el issue #${githubIssue.number} en GitHub.\n\n` +
+      `🔗 ${githubIssue.html_url}`;
+
+    await addCommentToTask(
+      env.BUGHERD_API_KEY,
+      task.project_id,
+      task.id,
+      issueComment
+    );
+    console.log(`Added comment to BugHerd task`);
 
     const discordWebhookUrl = getDiscordWebhookUrl(env, project.discordWebhookEnvKey);
 

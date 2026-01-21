@@ -86,3 +86,28 @@ export async function moveTaskToColumn(
     status: columnName,
   });
 }
+
+export async function addCommentToTask(
+  apiKey: string,
+  projectId: number,
+  taskId: number,
+  text: string
+): Promise<void> {
+  const url = `${BUGHERD_API_BASE}/projects/${projectId}/tasks/${taskId}/comments.json`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: createAuthHeader(apiKey),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ comment: { text } }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `BugHerd API error adding comment: ${response.status} - ${errorText}`
+    );
+  }
+}

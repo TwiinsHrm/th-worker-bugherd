@@ -89,7 +89,7 @@ async function main(): Promise<void> {
       body: JSON.stringify({
         name: "web",
         active: true,
-        events: ["issues"],
+        events: ["issues", "pull_request"],
         config: {
           url: targetUrl,
           content_type: "json",
