@@ -61,8 +61,13 @@ export function buildDiscordNotification(
           },
           {
             name: "🔗 Issue",
-            value: githubIssue.html_url,
-            inline: false,
+            value: `[#${githubIssue.number}](${githubIssue.html_url})`,
+            inline: true,
+          },
+          {
+            name: "🐛 BugHerd",
+            value: `[Ver Task](${task.admin_link})`,
+            inline: true,
           },
           {
             name: "📝 Descripción",
@@ -143,6 +148,13 @@ export function buildIssueClosedNotification(
     {
       name: "🔢 Issue",
       value: `[#${issue.number}](${issue.html_url})`,
+      inline: true,
+    },
+    {
+      name: "🐛 BugHerd",
+      value: bugherdAdminLink
+        ? `[Ver Task](${bugherdAdminLink})`
+        : "No disponible",
       inline: true,
     },
   ];
